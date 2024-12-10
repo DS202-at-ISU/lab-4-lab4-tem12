@@ -18,6 +18,12 @@ All submissions to the github repo will be automatically uploaded for grading on
 # Lab 4: Scraping (into) the Hall of Fame
 
 
+```{r}
+library(tidyverse)
+library(Lahman)
+library(stringi)
+```
+
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 hof <- Lahman::HallOfFame
 hof %>% 
@@ -28,4 +34,100 @@ hof %>%
     data = hof %>% filter(inducted=="Y")) +
   xlim(c(2000, 2022)) +
   ylab("Percent of votes")
+```
+
+```{r}
+library(tidyverse)
+library(rvest)
+```
+
+```{r}
+head(HallOfFame, 3)
+```
+
+```{r}
+HallOfFame %>% 
+  ggplot(aes(x = yearID, fill = inducted)) +
+  geom_bar() +
+  xlim(c(1936, 2022))
+```
+
+```{r}
+url <- "https://www.baseball-reference.com/awards/hof_2024.shtml"
+html <- read_html(url)
+tables <- html_table(html)
+
+head(tables[[1]], 3)
+data <- tables[[1]]
+actual_col_names <- data[1, ]
+colnames(data) <- actual_col_names
+data <- data[-1, ]
+head(data, 3)
+```
+
+# Methodology
+We aim to make the column names of our dataframe for 2024 to be the same as Hall Of Frame and also, use the same columns for two dataframes.
+
+```{r}
+# 2024 data doesnt have needed_note or category... so NA is the best for now.
+data$Votes <- as.numeric(data$Votes)
+data <- data %>% select(
+  Name, Votes, 
+) %>% mutate(
+  yearID = 2024,
+  votedBy = "BBWAA",
+  ballots = 385,
+  needed = 289,
+  inducted = ifelse(Votes>=289, "Y", "N"),
+  category = NA,
+  needed_note = NA
+) %>% rename(
+  votes = Votes, 
+  player_name = Name
+)
+
+# Format the type after making the column names consistent
+data$category <- factor(data$category, levels = c("Executive", "Manager", "Pioneer", "Pioneer/Executive", "Player", "Umpire"))
+data$player_name <- gsub("X-", "", data$player_name)
+data$needed_note <- as.character(data$needed_note)
+data$votes <- as.integer(data$votes)
+data$inducted <- factor(data$inducted)
+data
+```
+
+```{r}
+# Changing player names into player ids
+player_id <- People %>% 
+  mutate(
+    player_name = paste(nameFirst, nameLast)
+  ) %>% 
+  select(playerID, player_name)
+
+data %>% anti_join(player_id, by = "player_name")
+
+data <- data %>% 
+  mutate(
+    player_name = str_replace_all(player_name,
+                              c("\\á" = "a", "\\é" = "e", "\\í" = "i", "\\ó" = "o")) # For better joining
+  )
+
+data %>% anti_join(player_id, 
+                    by = "player_name")
+
+data <- data %>% left_join(player_id, by = "player_name") %>% 
+  select(
+    names(HallOfFame)
+  )
+```
+
+```{r}
+final_hof <- rbind(data, HallOfFame)
+final_hof %>% 
+  ggplot(aes(x = yearID, fill = inducted)) +
+  geom_bar() +
+  theme_classic()
+```
+
+```{r}
+write.csv(final_hof, './final_hof.csv')
 ```
