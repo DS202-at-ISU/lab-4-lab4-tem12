@@ -1,0 +1,32 @@
+---
+title: "Progress Report"
+author: "Huu Huy Nguyen"
+date: "2024-12-09"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r scrape}
+library(tidyverse)
+library(rvest)
+
+url = 'https://www.baseball-reference.com/awards/hof_2024.shtml'
+hof_2024 = read_html(url)
+table = hof_2024 %>% 
+  html_nodes('.poptip , .left , .right') %>% 
+  html_text()
+table = data.frame(table)
+
+table1 = data.frame()
+for(i in 1:26){
+  start = (i * 39) + 1
+  end = ((i+1) * 39)
+  row = table[start:end,1]
+  table1 = rbind(table1,row)
+}
+colnames(table1) = table[1:39,1]
+```
+
